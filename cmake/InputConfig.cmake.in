@@ -1,0 +1,16 @@
+# Config file for the @PROJECT_NAME@ package
+# It defines the following variables
+# @PROJECT_NAME@_INCLUDE_DIRS - include directories for @PROJECT_NAME@
+
+# Compute paths
+get_filename_component(@PROJECT_NAME@_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+set(@PROJECT_NAME@_INCLUDE_DIRS "${@PROJECT_NAME@_CMAKE_DIR}/../../include")
+
+include(CMakeFindDependencyMacro)
+@PROJECT_DEPENDENCIES@
+
+# Our library dependencies (contains definitions for IMPORTED targets)
+include("${@PROJECT_NAME@_CMAKE_DIR}/@PROJECT_NAME@Targets.cmake")
+
+set(@PROJECT_NAME@_VERSION @PROJ_VERSION@)
+set(@PROJECT_NAME@_VERSION_STRING "@PROJ_VERSION@")
