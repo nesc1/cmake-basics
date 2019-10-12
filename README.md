@@ -8,7 +8,7 @@ This live sample has 90% of what a real world project normally have:
 
 - executable project using libraries
 - external application using the created libraries
-- test projects to test the code (available on next release :))
+- test projects to test the code
 
 This tutorial is split into 3 steps:
 
@@ -16,7 +16,7 @@ This tutorial is split into 3 steps:
 2. unit test integration
 3. code coverage integration
 
-Current version only focus on first point
+Current version currently focus on first and second points
 
 ## Overview
 
@@ -60,6 +60,65 @@ cmake .. -DCMAKE_PREFIX_PATH="../install"
 cmake --build . --config Release
 ```
 
+### Default usage (with tests)
+
+#### Small Introdution on CONAN Package Manager
+
+To compile the unit tests an external dependency is required that is gtest library. Using conan package manager we can request to the package manager to handle the compilation and installation of gtest library.
+For that we only need to do the following:
+
+- create the conanfile.txt on the root project containing the following for example:
+
+```txt
+[requires]
+gtest/1.8.1@hmi/stable
+
+[generators]
+cmake_paths
+```
+
+- in the build folder call
+
+```batch
+conan install .. -s build_type=Release
+```
+
+(this will create the file conan_paths.cmake that will have instructions where to find the dependendt libraries)
+
+- after this we do the same to configure and build the project but supply the conan_paths.cmake to the cmake toolchain:
+
+```batch
+cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_paths.cmake -DBUILD_TESTS=ON
+```
+
+or you can also use the CMAKE*PROJECT\_<_PROJECT-NAME*>\_INCLUDE to specify a file to be included by the project() command)
+
+```batch
+cmake .. -DCMAKE_PROJECT_LibAppTestProject_INCLUDE=./build/conan_paths.cmake -DBUILD_TESTS=ON ..
+```
+
+_on windows with default compiler (visual studio by default)_
+
+```
+mkdir build
+cd build
+conan install .. -s build_type=Release
+cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_paths.cmake -DBUILD_TESTS=ON
+cmake --build . --config Release
+ctest -VV -C Release
+```
+
+- _on linux with default compiler (gcc by default)_
+
+```
+mkdir build
+cd build
+conan install .. -s build_type=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=conan_paths.cmake -DBUILD_TESTS=ON
+cmake --build .
+ctest -VV
+```
+
 ### Explanation
 
 #### Configuration Phase
@@ -73,7 +132,7 @@ cmake ..
 - defining the instal location (important for install process withou this an error will happear on windows due to permissions) or defining other settings
 
 ```
-cmake .. -DCMAKE_INSTALL_PREFIX="./bin" -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_INSTALL_PREFIX="./bin" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
 ```
 
 _Note_: that some CMake-generated build trees can have multiple build configurations in the same tree, like Visual Studio, so on this configurations setting -DCMAKE_BUILD_TYPE=<build_type> does nothing and you must explicit set on build, install and test phase the configuration to use or default will be used
@@ -96,6 +155,22 @@ cmake --build . --config Debug
 
 ```
 cmake --build . --target install
+```
+
+#### Test Phase
+
+- default test
+
+```
+ctest -VV
+```
+
+_Note:_ -VV stands for extra verbose (see more on [ctest](https://cmake.org/cmake/help/latest/manual/ctest.1.html#options))
+
+- test in release (if build tree supports it)
+
+```
+ctest -VV -C Release
 ```
 
 #### Install Phase
@@ -160,6 +235,33 @@ to build the external app (external-application) simple use (note the use of the
 cmake -GNinja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_LINKER=lld-link -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=../install -DCMAKE_INSTALL_PREFIX=../install ..
 cmake --build . --target install
 ```
+
+to build the tests we can do:
+
+```batch
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvarsall.bat" x64
+cmake -GNinja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_LINKER=lld-link -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=<path for gtest installation> -DCMAKE_INSTALL_PREFIX=../install -DBUILD_TESTS=ON ..
+cmake --build . --target install
+```
+
+to run tests outside the project structure also works, we only need to specify the install folder of our library and gtest installation dir on CMAKE_PREFIX_PATH
+
+```batch
+cmake -GNinja -DCMAKE_MAKE_PROGRAM=C:/PortableApps/ninja.exe -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_LINKER=lld-link -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="../install;<path for gtest installation>" -DCMAKE_INSTALL_PREFIX=../install -DBUILD_TESTS=ON ..
+cmake --build . --target install
+```
+
+_Note: if you want to run tests while compilation is being run then add _-DRUN_TESTS_ON_COMPILE=ON\_\_
+
+to build on linux the same is performed (note that the build tree used does not support multiple configurations so you really need to specify the CMAKE_BUILD_TYPE):
+
+```batch
+cmake -GNinja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_LINKER=lld -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=<path for gtest installation> -DCMAKE_INSTALL_PREFIX=../install -DBUILD_TESTS=ON ..
+cmake --build . --target install
+ctest -VV
+```
+
+_Note_: that we use clang++ to compile the c++ project as we can also use the g++ (in this we do not required MSVC environment to use clang and for that the linker and compiler are different)
 
 Another interesting feature that the library project is prepared to do is to easily create the library as static (default) or as shared. To do this simple specify the BUILD_SHARED_LIBS=ON on the configuration step, example:
 

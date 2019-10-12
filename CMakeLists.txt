@@ -11,6 +11,10 @@ set(
   )
 project(LibAppTestProject VERSION ${LibAppTestProject_VERSION} LANGUAGES CXX)
 
+# specify if the unit tests are to build
+option(BUILD_TESTS "Build the unit tests" OFF)
+option(RUN_TESTS_ON_COMPILE "Run the unit tests during compilation" OFF)
+
 # Offer the user the choice of overriding the installation directories
 set(INSTALL_LIB_DIR lib CACHE PATH "Installation directory for libraries")
 set(INSTALL_BIN_DIR bin CACHE PATH "Installation directory for executables")
@@ -41,3 +45,11 @@ find_package(mylibA REQUIRED)
 find_package(mylibB REQUIRED)
 
 add_subdirectory(src)
+if(BUILD_TESTS)
+  message(STATUS "Build test modules...")
+  # Note: testing must be enabled at top script level
+  enable_testing()
+  add_subdirectory(tests)
+else()
+  message(STATUS "Unit tests will not be built")
+endif()
