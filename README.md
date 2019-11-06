@@ -16,7 +16,7 @@ This tutorial is split into 3 steps:
 2. unit test integration
 3. code coverage integration
 
-Current version currently focus on first and second points
+Current version currently focus on all of them.
 
 ## Overview
 
@@ -60,14 +60,16 @@ cmake .. -DCMAKE_PREFIX_PATH="../install"
 cmake --build . --config Release
 ```
 
-### Default usage (with tests)
+### Default Usage - With Tests (GTest)
 
 #### Small Introdution on CONAN Package Manager
 
-To compile the unit tests an external dependency is required that is gtest library. Using conan package manager we can request to the package manager to handle the compilation and installation of gtest library.
+To compile the unit tests an external dependency is required, the gtest library.
+
+Using conan package manager we can request to the package manager to handle the compilation and installation of gtest library.
 For that we only need to do the following:
 
-- create the conanfile.txt on the root project containing the following for example:
+- create the conanfile.txt on the root project containing the following (for example):
 
 ```txt
 [requires]
@@ -97,7 +99,9 @@ or you can also use the CMAKE*PROJECT\_<_PROJECT-NAME*>\_INCLUDE to specify a fi
 cmake .. -DCMAKE_PROJECT_LibAppTestProject_INCLUDE=./build/conan_paths.cmake -DBUILD_TESTS=ON ..
 ```
 
-_on windows with default compiler (visual studio by default)_
+#### Compile Tests With CMake
+
+- _on windows with default compiler (visual studio by default)_
 
 ```
 mkdir build
@@ -119,20 +123,166 @@ cmake --build .
 ctest -VV
 ```
 
-### Explanation
+### Default Usage - With Tests and Coverage
+
+#### Generate Coverage
+
+- _on windows with default compiler (visual studio by default)_
+
+The Visual Studio code coverage feature is available only on Visual Studio Enterprise edition.
+
+Also because I don't own a Visual Studio Enterprise edition license and because the desired goal of this tutorial is to perform the same steps in any operating system to acomplish the desired objectives we are using custom tools to mimic the same functionality accomplished in linux system with lcov and grcov. This tools can be found on:
+
+- grcov: https://github.com/mozilla/grcov
+- lcov: https://github.com/valbok/lcov
+
+So starting from begining we need to make a new directory where to build the project:
+
+Note: that we will need to run our unit tests to validate the coverage acomplished in our project:
+
+```
+mkdir build
+cd build
+conan install .. -s build_type=Release
+```
+
+Next we need to compile the project, lcov and grcov only support gcc or clang, so because we are on windows we will use clang to compile our project (please note that you need to have a clang installation on your system in order to execute the next command)
+
+```
+λ clang --version
+clang version 9.0.0 (tags/RELEASE_900/final)
+Target: x86_64-pc-windows-msvc
+Thread model: posix
+InstalledDir: C:\Program Files\LLVM\bin
+```
+
+As you can see my clang installation is located in: `C:\Program Files\LLVM\bin`, this is important to know because cmake will require that clang binaries to be in path. Another thing that cmake will try to find is the ninja executable, in my case I have it on `c:\PortableApps`.
+
+So in order to compile the project using clang and ninja execute:
+
+```
+cmake -E env LDFLAGS="-fuse-ld=lld-link" PATH="%PATH%;c:/PortableApps/;C:/PROGRA~1/LLVM/lib/clang/9.0.0/lib/windows;C:/PROGRA~1/LLVM/bin/" cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER:PATH="clang.exe" -DCMAKE_CXX_COMPILER:PATH="clang++.exe" -DCMAKE_RC_COMPILER:PATH="llvm-rc.exe" -DCMAKE_TOOLCHAIN_FILE=conan_paths.cmake -DBUILD_TESTS=ON -DRUN_TESTS_ON_COMPILE=ON -DCODE_COVERAGE=ON -DCMAKE_PREFIX_PATH=./tools
+
+cmake --build .
+```
+
+Note that we request that build process run with tests automatically (`-DRUN_TESTS_ON_COMPILE=ON`) and we enable the support for code coverage: `-DCODE_COVERAGE=ON` (please see cmake code for more details).
+
+Next we generate the coverage information.
+
+Note that the coverage process will try to look into all the source files, including the system ones, and normally we don't want that. So we need to list all the source files affected by the coverage tools and then ignore the files that we don't want in our report, example:
+
+To list all files affected:
+
+```
+..\tools\grcov.exe --llvm -s . -t files .
+```
+
+And now call `grcov` ignoring all the files not desired on the final report:
+
+```
+..\tools\grcov.exe --llvm --ignore "C:/Users/Nuno/.conan/data/gtest/1.8.1/bincrafters/stable/package/3f7b6d42d6c995a23d193db1f844ed23ae943226/include/gtest/_" --ignore "C:/Program Files (x86)/Windows Kits/10/Include/10.0.17763.0/ucrt/_" --ignore "C:/git/tutorials/cmake-basics/src/app/_" --ignore "C:/Program Files (x86)/Microsoft Visual Studio/2019/Professional/VC/Tools/MSVC/14.23.28105/include/_" --ignore "C:/Program Files (x86)/Microsoft Visual Studio/2019/Professional/VC/Tools/MSVC/14.23.28105/include/\*" -s c:\git\tutorials\cmake-basics\build\ -t lcov c:\git\tutorials\cmake-basics\build\ > lcov.info
+```
+
+In the end we will generate a nice html report with all information (this also assume that the pearl tool is installed on the system):
+
+```
+perl ..\tools\genhtml.perl -o report --show-details --highlight --legend --title "LibAppTestProject" --num-spaces 4 lcov.info
+```
+
+This last command will generate a new folder called `report` with html files inside containing the coverage of your project (`report/index.html`).
+
+Source of information was: https://marco-c.github.io/2018/01/09/code-coverage-with-clang-on-windows.html
+
+- _on linux with default compiler (gcc by default)_
+
+On linux the process is much more simpler and we use lcov functionlity to achieve the desired goal.
+
+##### Requirements:
+
+```
+sudo apt install lcov
+```
+
+Make a new build folder and configure the project dependencies with conan:
+
+```
+mkdir build
+cd build
+conan install .. -s build_type=Release
+```
+
+The configure as no special handling only enabling our project flags:
+
+- BUILD_TESTS
+- RUN_TESTS_ON_COMPILE
+- CODE_COVERAGE
+
+Please see cmake code in for more details.
+
+Note that is desired to use debug build to have a better view of coverage.
+
+```
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=conan_paths.cmake -DBUILD_TESTS=ON -DRUN_TESTS_ON_COMPILE=ON -DCODE_COVERAGE=ON
+cmake --build .
+```
+
+The next command will capture the coverage information into the `lcov.info` file:
+
+```
+lcov --capture --base-directory . --directory . --output-file lcov.info
+```
+
+In the same way as in windows we need to remove the code that we don't want to happear in the coverage, example of the system code. To see all the affected code by the coverage execute the following:
+
+```
+lcov -l lcov.info
+```
+
+But unlike windows we can only include what we want, that is our source project files, for this we can execute the following comand:
+
+```
+lcov --extract lcov.info <your path>/cmake-basics/src/libA/*  --extract lcov.info <your path>/cmake-basics/src/libB/* --extract lcov.info <your path>/cmake-basics/tests/simpletest/* -o lcov.info
+```
+
+This extract our source code information from `lcov.info` and generate a new file (`lcov.info`) with only that information.
+
+In the end we generate the html report by executing:
+
+```
+genhtml lcov.info --show-details --highlight --legend --title "LibAppTestProject" --num-spaces 4 --output-directory report
+firefox report/index.html &
+```
+
+Alternatively you can also restart everything by:
+
+```
+lcov --base-directory . --directory . --zerocounters
+ctest -V
+lcov --capture --base-directory . --directory . --output-file lcov.info
+...
+```
+
+_(don't know why but using clang with lcov failed)_
+
+### CMake Explanation Commands
 
 #### Configuration Phase
 
 - normal configure
 
 ```
+
 cmake ..
+
 ```
 
 - defining the instal location (important for install process withou this an error will happear on windows due to permissions) or defining other settings
 
 ```
+
 cmake .. -DCMAKE_INSTALL_PREFIX="./bin" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
+
 ```
 
 _Note_: that some CMake-generated build trees can have multiple build configurations in the same tree, like Visual Studio, so on this configurations setting -DCMAKE_BUILD_TYPE=<build_type> does nothing and you must explicit set on build, install and test phase the configuration to use or default will be used
@@ -142,19 +292,25 @@ _Note_: that some CMake-generated build trees can have multiple build configurat
 - simple build (without install)
 
 ```
+
 cmake --build .
+
 ```
 
 - simple build (in debug for build trees that support it)
 
 ```
+
 cmake --build . --config Debug
+
 ```
 
 - run specific targets (example of install)
 
 ```
+
 cmake --build . --target install
+
 ```
 
 #### Test Phase
@@ -162,7 +318,9 @@ cmake --build . --target install
 - default test
 
 ```
+
 ctest -VV
+
 ```
 
 _Note:_ -VV stands for extra verbose (see more on [ctest](https://cmake.org/cmake/help/latest/manual/ctest.1.html#options))
@@ -170,7 +328,9 @@ _Note:_ -VV stands for extra verbose (see more on [ctest](https://cmake.org/cmak
 - test in release (if build tree supports it)
 
 ```
+
 ctest -VV -C Release
+
 ```
 
 #### Install Phase
@@ -178,13 +338,17 @@ ctest -VV -C Release
 - default install
 
 ```
+
 cmake --build . --target install
+
 ```
 
 - default install in release (if compiler supports it)
 
 ```
+
 cmake --build . --target install --config Release
+
 ```
 
 ## Using other compilers and generators

@@ -14,6 +14,12 @@ project(LibAppTestProject VERSION ${LibAppTestProject_VERSION} LANGUAGES CXX)
 # specify if the unit tests are to build
 option(BUILD_TESTS "Build the unit tests" OFF)
 option(RUN_TESTS_ON_COMPILE "Run the unit tests during compilation" OFF)
+# code coverage support
+include(cmake/code-coverage.cmake)
+if(CODE_COVERAGE)
+  message(STATUS "Building with coverage...")
+  add_code_coverage() # Adds instrumentation to all targets
+endif()
 
 # Offer the user the choice of overriding the installation directories
 set(INSTALL_LIB_DIR lib CACHE PATH "Installation directory for libraries")
@@ -32,6 +38,8 @@ set(SUBPROJECTS mylibA mylibB)
 if(POLICY CMP0057)
   cmake_policy(SET CMP0057 NEW)
 endif()
+# this is disencourage due to: https://crascit.com/2018/09/14/do-not-redefine-
+# cmake-commands/
 macro(find_package)
   if(NOT "${ARGV0}" IN_LIST SUBPROJECTS)
     _find_package(${ARGV})
@@ -49,6 +57,10 @@ if(BUILD_TESTS)
   message(STATUS "Build test modules...")
   # Note: testing must be enabled at top script level
   enable_testing()
+  if(CODE_COVERAGE)
+    message(STATUS "Building tests with coverage...")
+    add_code_coverage_all_targets() # Adds instrumentation to all targets
+  endif()
   add_subdirectory(tests)
 else()
   message(STATUS "Unit tests will not be built")
