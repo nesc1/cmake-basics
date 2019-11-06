@@ -41,9 +41,10 @@ _on windows with default compiler (visual studio by default)_
 
 ```
 cd <root>
+cd project
 mkdir build
 cd build
-cmake .. -DCMAKE_INSTALL_PREFIX="../install"
+cmake .. -DCMAKE_INSTALL_PREFIX="../../install"
 cmake --build . --config Release --target install
 ```
 
